@@ -103,7 +103,6 @@ jobs:
         uses: withastro/action@v6
         with:
           path: site
-          package-manager: pnpm@latest
         env:
           ASTRO_SITE: ${{ steps.pages.outputs.origin }}
           ASTRO_BASE: ${{ steps.pages.outputs.base_path }}
