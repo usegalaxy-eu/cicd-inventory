@@ -12,13 +12,13 @@
   },
   "dependencies": {
     "@astrojs/sitemap": "^3.7.2",
-    "@tailwindcss/vite": "^4.2.2",
-    "astro": "^6.1.1",
-    "tailwindcss": "^4.2.2"
+    "@tailwindcss/vite": "^4.2.4",
+    "astro": "^6.3.1",
+    "tailwindcss": "^4.2.4"
   },
   "devDependencies": {
-    "@axe-core/playwright": "^4.11.1",
-    "@playwright/test": "^1.58.2"
+    "@axe-core/playwright": "^4.11.3",
+    "@playwright/test": "^1.59.1"
   },
   "packageManager": "pnpm@11.0.8+sha512.4c4097e1dd2d42372c4e7fa5a791ff28fc75a484c7ac192e64b1df0fdef17594ba982f9b4fed9adfb3c757846f565b799b2763fb3733d1de1bcb82cf46684912"
 }
