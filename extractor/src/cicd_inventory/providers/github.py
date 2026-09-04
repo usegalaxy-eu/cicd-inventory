@@ -30,6 +30,12 @@ class GitHubProvider(RepositoryProvider):
             "Content-Type": "application/json",
             "Accept": "application/vnd.github+json",
         }
+        self._parse_errors: list[str] = []
+
+    @property
+    def parse_errors(self) -> list[str]:
+        """Messages for workflow files that could not be parsed into a record."""
+        return list(self._parse_errors)
 
     # ------------------------------------------------------------------
     # Public interface
@@ -183,12 +189,32 @@ class GitHubProvider(RepositoryProvider):
         repo: str,
         filename: str,
     ) -> WorkflowRecord | None:
+        # A single unparseable file must never abort the run, and safe_load raises
+        # more than YAMLError — e.g. a bare out-of-range date such as `2024-02-30`
+        # reaches datetime.date() and comes back as a plain ValueError.
         try:
-            doc: dict[str, Any] = yaml.safe_load(text) or {}
-        except yaml.YAMLError as exc:
-            log.warning("YAML parse error in %s/%s/%s: %s", org, repo, filename, exc)
-            return None
+            doc: Any = yaml.safe_load(text) or {}
+            if not isinstance(doc, dict):
+                raise TypeError(f"expected a top-level YAML mapping, got {type(doc).__name__}")
+            return self._build_record(doc, text, org, repo, filename)
+        except Exception as exc:
+            return self._skip(org, repo, filename, exc)
 
+    def _skip(self, org: str, repo: str, filename: str, exc: Exception) -> None:
+        """Record and log a workflow file that could not be turned into a record."""
+        message = f"{org}/{repo}/{filename}: {type(exc).__name__}: {exc}"
+        log.warning("Skipping unparseable workflow %s", message)
+        self._parse_errors.append(message)
+        return None
+
+    def _build_record(
+        self,
+        doc: dict[str, Any],
+        text: str,
+        org: str,
+        repo: str,
+        filename: str,
+    ) -> WorkflowRecord:
         workflow_name: str = doc.get("name") or filename
         # PyYAML (YAML 1.1) parses the bare key `on` as the boolean True.
         # We must check both the string "on" (for quoted keys) and True (for
@@ -297,6 +323,35 @@ def _extract_triggers(on_field: Any) -> list[str]:
     return [str(on_field)]
 
 
+def _normalize_runs_on(value: Any) -> str | list[str]:
+    """Coerce a `runs-on:` value into the string / list-of-strings the model accepts.
+
+    GitHub also allows a mapping form for runner groups, which is neither::
+
+        runs-on:
+          group: cvmfs-publish
+          labels: [cvmfs, self-hosted]
+    """
+    if value is None:
+        return "unknown"
+    if isinstance(value, str):
+        return value
+    if isinstance(value, list):
+        return [str(item) for item in value]
+    if isinstance(value, dict):
+        group = value.get("group")
+        labels = value.get("labels")
+        if labels is None:
+            label_list: list[str] = []
+        elif isinstance(labels, list):
+            label_list = [str(label) for label in labels]
+        else:
+            label_list = [str(labels)]
+        parts = ([f"group:{group}"] if group else []) + label_list
+        return parts or "unknown"
+    return str(value)
+
+
 def _extract_jobs(jobs_field: Any) -> list[JobInfo]:
     if not isinstance(jobs_field, dict):
         return []
@@ -309,7 +364,7 @@ def _extract_jobs(jobs_field: Any) -> list[JobInfo]:
         for step in steps:
             if isinstance(step, dict) and (uses := step.get("uses")):
                 actions.append(ActionReference(uses=uses, name=step.get("name")))
-        runs_on = job_def.get("runs-on", "unknown")
+        runs_on = _normalize_runs_on(job_def.get("runs-on"))
         result.append(
             JobInfo(
                 job_id=str(job_id),
