@@ -19,7 +19,7 @@ from cicd_inventory.providers.github import GitHubProvider
 # Helpers
 # ---------------------------------------------------------------------------
 
-_provider = GitHubProvider.__new__(GitHubProvider)  # no __init__ needed for parsing
+_provider = GitHubProvider(token="test-token")  # __init__ only builds headers; no network
 
 
 def _parse(yaml_text: str) -> list[str]:

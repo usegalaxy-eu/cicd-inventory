@@ -97,7 +97,14 @@ def main(
         if not records:
             log.warning("No workflow records found — check org names and token permissions.")
 
-        write_collections(records, output_dir.resolve())
+        parse_errors = provider.parse_errors
+        if parse_errors:
+            log.warning(
+                "%d workflow file(s) skipped due to parse errors (listed in _index.json)",
+                len(parse_errors),
+            )
+
+        write_collections(records, output_dir.resolve(), parse_errors=parse_errors)
         click.echo(f"Done. {len(records)} workflows written to {output_dir}.")
 
     asyncio.run(_run())
