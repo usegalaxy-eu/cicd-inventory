@@ -32,5 +32,5 @@ known-first-party = ["cicd_inventory"]
 [dependency-groups]
 dev = [
     "pytest>=9.1.0",
-    "ruff>=0.15.17,<1",
+    "ruff>=0.16.7,<1",
 ]
